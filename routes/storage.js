@@ -7,6 +7,7 @@ const {
   uploadtostorage,
   deleteitem,
   downloadhandler,
+  fetchstorageuser,
 } = require("../controllers/storage");
 
 const storage = multer.memoryStorage();
@@ -16,6 +17,7 @@ const upload = multer({
 });
 
 router.get("/fetchstorage/:orgid", fetchstorage);
+router.get("/fetchstorageuser/:id", fetchstorageuser);
 router.post("/uploadtostorage", upload.single("file"), uploadtostorage);
 router.post("/deleteitem", deleteitem);
 router.get("/downloadfile", downloadhandler);

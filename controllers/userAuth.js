@@ -189,7 +189,7 @@ exports.forgotpass = async (req, res) => {
 
 function createUsername(fullname) {
   // Convert the full name to lowercase and replace spaces with nothing
-  let username = fullname.toLowerCase().replace(/\s+/g, '');
+  let username = fullname.toLowerCase().replace(/\s+/g, "");
 
   // Generate a random 4-digit number
   let randomDigits = Math.floor(1000 + Math.random() * 9000);
@@ -197,7 +197,6 @@ function createUsername(fullname) {
   // Concatenate the username with the 4 random digits
   return `${username}${randomDigits}`;
 }
-
 
 exports.signup = async (req, res) => {
   try {
@@ -248,7 +247,7 @@ exports.signup = async (req, res) => {
           password: password,
           dp: objectName,
           name: fullname,
-          username: createUsername(fullname)
+          username: createUsername(fullname),
         });
         await user.save();
         await Organization.updateOne(
@@ -271,7 +270,7 @@ exports.signup = async (req, res) => {
           password: password,
           dp: objectName,
           name: fullname,
-          username: createUsername(fullname)
+          username: createUsername(fullname),
         });
         savedUser = await user.save();
         const or = new Organization({ title: org, creator: user._id });
@@ -386,20 +385,46 @@ exports.getuserdata = async (req, res) => {
 
 // ayush's routes
 
+exports.getuserdatanew = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { orgid } = req.body;
+    const user = await User.findById(id);
+    const org = await Organization.findById(orgid);
+
+    const code = org.code;
+    if (user) {
+      console.log(user?.dp);
+      const profile = process.env.URL + user?.dp;
+      res.status(200).json({ success: true, user, profile, code });
+    } else {
+      res.status(304).json({ success: false });
+    }
+  } catch (e) {
+    console.log(e);
+    res.status(400).json({ success: false });
+  }
+};
+
 exports.getorgname = async () => {
   try {
-    const org = await Organization.find().select("title users admin").populate("admin", "name")
-    res.status(200).json({ success: true, org })
+    const org = await Organization.find()
+      .select("title users admin")
+      .populate("admin", "name");
+    res.status(200).json({ success: true, org });
   } catch (error) {
     res.status(400).json({ success: false });
-    console.log(error)
+    console.log(error);
   }
-}
+};
 
 exports.login = async (req, res) => {
   try {
     const { email, pass } = req.body;
-    const user = await User.findOne({ email }).populate("organization", "title _id");
+    const user = await User.findOne({ email }).populate(
+      "organization",
+      "title _id"
+    );
 
     if (user) {
       if (user.password === pass) {
@@ -411,14 +436,18 @@ exports.login = async (req, res) => {
           jobrole: user?.jobrole,
         };
 
-
-        console.log(data, "data")
+        console.log(data, "data");
         const access_token = generateAccessToken(data);
         const refresh_token = generateRefreshToken(data);
 
-        res
-          .status(200)
-          .json({ user, success: true, data, access_token, refresh_token, organistions: user?.organization });
+        res.status(200).json({
+          user,
+          success: true,
+          data,
+          access_token,
+          refresh_token,
+          organistions: user?.organization,
+        });
       } else {
         res.status(203).json({ success: false, message: "Incorrect Details" });
       }
@@ -431,10 +460,148 @@ exports.login = async (req, res) => {
   }
 };
 
+// exports.signupnew = async (req, res) => {
+//   try {
+//     const { email, jobrole, password, org, fullname, orgid, inviteCode } =
+//       req.body;
+//     // Check if user already exists with the given email
+//     let user = await User.findOne({ email }).populate("organization");
+
+//     if (user) {
+//       const data = {
+//         id: user._id,
+//         dp: process.env.URL + user.dp,
+//         username: user.username,
+//         name: user.name,
+//         jobrole: user.jobrole,
+//       };
+
+//       const access_token = generateAccessToken(data);
+//       const refresh_token = generateRefreshToken(data);
+
+//       return res.status(200).json({
+//         data: user,
+//         success: true,
+//         access_token,
+//         refresh_token,
+//         organisations: user.organization,
+//       });
+//     }
+
+//     // Handle file uploads (both user profile pic and organization profile pic)
+//     let userProfilePic;
+//     let orgProfilePic;
+
+//     console.log(req.files);
+
+//     if (req.files && req.files.length > 0) {
+//       // Loop through uploaded files and assign them appropriately
+//       req.files.forEach(async (file) => {
+//         const uuidString = uuid();
+//         const objectName = `${Date.now()}_${uuidString}_${file.originalname}`;
+
+//         // Upload the file to S3
+//         await s3.send(
+//           new PutObjectCommand({
+//             Bucket: BUCKET_NAME,
+//             Key: objectName,
+//             Body: file.buffer,
+//             ContentType: file.mimetype,
+//           })
+//         );
+//         console.log(file.fieldname, "fieldname");
+//         // Assign the correct file as user or organization profile pic based on fieldname
+//         if (file.fieldname === "dp") {
+//           console.log("first", file.fieldname === "dp");
+//           userProfilePic = objectName;
+//         } else if (file.fieldname === "profile") {
+//           orgProfilePic = objectName;
+//           console.log("secod", file.fieldname === "profile");
+//         }
+//       });
+//     }
+
+//     let organization;
+//     // Find the organization, if exists
+//     if (orgid) {
+//       organization = await Organization.findById(orgid);
+//     } else {
+//       organization = await Organization.findOne({ title: org });
+//     }
+
+//     const newUser = new User({
+//       email,
+//       jobrole,
+//       password,
+
+//       dp: userProfilePic,
+//       name: fullname,
+//       username: createUsername(fullname),
+//     });
+
+//     // If organization exists, update it with the new user
+//     if (organization) {
+//       await Organization.updateOne(
+//         { _id: organization._id },
+//         {
+//           $addToSet: { users: newUser._id },
+//           $inc: { userscount: 1 },
+//         }
+//       );
+
+//       // Add organization to user directly
+//       newUser.organization = organization._id;
+//     } else {
+//       // Create a new organization with profile picture and add the new user to it
+//       organization = new Organization({
+//         title: org,
+//         creator: newUser._id,
+//         code: inviteCode,
+//         profile: orgProfilePic, // Save org profile picture
+//       });
+//       await organization.save();
+
+//       // Add the new organization to the user
+//       newUser.organization = organization._id;
+//     }
+
+//     console.log(userProfilePic, orgProfilePic, "procghvjk");
+
+//     console.log(organization, newUser);
+
+//     // Save the new user with organization info
+//     const savedUser = await newUser.save();
+
+//     const data = {
+//       id: savedUser._id,
+//       dp: process.env.URL + savedUser.dp,
+//       username: savedUser.username,
+//       name: savedUser.name,
+//       jobrole: savedUser.jobrole,
+//     };
+
+//     const access_token = generateAccessToken(data);
+//     const refresh_token = generateRefreshToken(data);
+
+//     // Respond with user data, tokens, and organization information
+//     return res.status(200).json({
+//       success: true,
+//       access_token,
+//       data,
+//       refresh_token,
+//       organisations: savedUser.organization ? [organization] : [],
+//     });
+//   } catch (e) {
+//     console.log(e);
+//     res.status(400).json({ success: false });
+//   }
+// };
 
 exports.signupnew = async (req, res) => {
   try {
-    const { email, jobrole, password, org, fullname, orgid, inviteCode } = req.body;
+    const { email, jobrole, password, org, fullname, orgid, inviteCode } =
+      req.body;
+
     // Check if user already exists with the given email
     let user = await User.findOne({ email }).populate("organization");
 
@@ -459,13 +626,13 @@ exports.signupnew = async (req, res) => {
       });
     }
 
-    // Handle file uploads (both user profile pic and organization profile pic)
+    // Initialize profile picture variables
     let userProfilePic = "default.png";
     let orgProfilePic = "default.png";
 
+    // Handle file uploads
     if (req.files && req.files.length > 0) {
-      // Loop through uploaded files and assign them appropriately
-      req.files.forEach(async file => {
+      const uploadPromises = req.files.map(async (file) => {
         const uuidString = uuid();
         const objectName = `${Date.now()}_${uuidString}_${file.originalname}`;
 
@@ -478,14 +645,17 @@ exports.signupnew = async (req, res) => {
             ContentType: file.mimetype,
           })
         );
-        console.log(file.fieldname, "fieldname")
-        // Assign the correct file as user or organization profile pic based on fieldname
+
+        // Assign the correct file as user or organization profile pic
         if (file.fieldname === "dp") {
           userProfilePic = objectName;
         } else if (file.fieldname === "profile") {
           orgProfilePic = objectName;
         }
       });
+
+      // Wait for all uploads to finish
+      await Promise.all(uploadPromises);
     }
 
     let organization;
@@ -511,7 +681,7 @@ exports.signupnew = async (req, res) => {
         { _id: organization._id },
         {
           $addToSet: { users: newUser._id },
-          $inc: { userscount: 1 }
+          $inc: { userscount: 1 },
         }
       );
 
@@ -523,7 +693,7 @@ exports.signupnew = async (req, res) => {
         title: org,
         creator: newUser._id,
         code: inviteCode,
-        profile: orgProfilePic // Save org profile picture
+        profile: orgProfilePic, // Save org profile picture
       });
       await organization.save();
 
@@ -542,6 +712,8 @@ exports.signupnew = async (req, res) => {
       jobrole: savedUser.jobrole,
     };
 
+    const orgId = savedUser.organization;
+
     const access_token = generateAccessToken(data);
     const refresh_token = generateRefreshToken(data);
 
@@ -550,23 +722,22 @@ exports.signupnew = async (req, res) => {
       success: true,
       access_token,
       data,
+      orgId,
       refresh_token,
       organisations: savedUser.organization ? [organization] : [],
     });
-  }
-
-  catch (e) {
+  } catch (e) {
     console.log(e);
     res.status(400).json({ success: false });
   }
 };
 
-
 exports.signupind = async (req, res) => {
   try {
-    const { email, password, fullname, } = req.body;
+    const { email, password, fullname } = req.body;
+
     // Check if user already exists with the given email
-    let user = await User.findOne({ email })
+    let user = await User.findOne({ email });
 
     if (user) {
       const data = {
@@ -585,16 +756,17 @@ exports.signupind = async (req, res) => {
         success: true,
         access_token,
         refresh_token,
-
       });
     }
 
     let objectName = "default.png";
 
-    const file = req.file
-    const uuidString = uuid();
+    const file = req.file;
+
+    console.log(file, "file");
 
     if (file) {
+      const uuidString = uuid();
       objectName = `${Date.now()}_${uuidString}_${file.originalname}`;
       // Upload the file to S3
       await s3.send(
@@ -609,7 +781,7 @@ exports.signupind = async (req, res) => {
 
     const newUser = new User({
       email,
-      jobrole,
+
       password,
       dp: objectName,
       name: fullname,
@@ -635,11 +807,8 @@ exports.signupind = async (req, res) => {
       access_token,
       data,
       refresh_token,
-      organisations: savedUser.organization ? [organization] : [],
     });
-  }
-
-  catch (e) {
+  } catch (e) {
     console.log(e);
     res.status(400).json({ success: false });
   }
@@ -647,30 +816,29 @@ exports.signupind = async (req, res) => {
 
 exports.fetchAllOrganisation = async (req, res) => {
   try {
-    const organization = await Organization.find().select("_id creator profile title").populate("creator", "name username dp")
-    res.status(200).json({ success: true, organization, url: process.env.URL })
+    const organization = await Organization.find()
+      .select("_id creator profile title")
+      .populate("creator", "name username dp");
+    res.status(200).json({ success: true, organization, url: process.env.URL });
   } catch (error) {
-    console.log(
-      error
-    )
+    console.log(error);
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
-}
+};
 
 exports.checkInviteCode = async (req, res) => {
   try {
-    const { orgid } = req.params
-    const { code } = req.body
-    const org = await Organization.findById(orgid)
+    const { orgid } = req.params;
+    const { code } = req.body;
+    const org = await Organization.findById(orgid);
 
-    let isMatched = false
+    let isMatched = false;
 
     if (code == org.code) {
-      isMatched = true
+      isMatched = true;
     }
-    res.status(200).json({ success: true, isMatched })
-
+    res.status(200).json({ success: true, isMatched });
   } catch (error) {
-    console.log(error)
+    console.log(error);
   }
-}
+};

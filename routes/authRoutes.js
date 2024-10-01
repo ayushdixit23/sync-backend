@@ -13,6 +13,7 @@ const {
   signupnew,
   fetchAllOrganisation,
   checkInviteCode,
+  getuserdatanew,
   signupind,
 } = require("../controllers/userAuth");
 const { members } = require("../controllers/members");
@@ -26,11 +27,11 @@ router.post("/forgotpass", forgotpass);
 router.post("/updatedetails", updatedetails);
 router.get("/getmembers/:userid/:orgid", members);
 router.get("/getuserdata/:id", getuserdata);
-
+router.post("/v1/getuserdata/:id", getuserdatanew);
 
 // ayush's route
 
-router.get("/getorgname", getorgname)
+router.get("/getorgname", getorgname);
 router.post("/signin", login);
 router.post("/signup", upload.any(), signupnew);
 router.post("/signupind", upload.single("dp"), signupind);

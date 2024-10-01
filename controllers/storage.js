@@ -8,7 +8,7 @@ const {
 const Organization = require("../models/Organization");
 const uuid = require("uuid").v4;
 const AWS = require("aws-sdk");
-const { Upload } = require('@aws-sdk/lib-storage');
+const { Upload } = require("@aws-sdk/lib-storage");
 const BUCKET_NAME = process.env.BUCKET_NAME;
 const Msgbucket = process.env.MSG_BUCKET;
 const { PassThrough } = require("stream");
@@ -52,6 +52,30 @@ exports.fetchstorage = async (req, res) => {
       res
         .status(200)
         .json({ success: true, storage, storageused: org.storageused });
+    } else {
+      res.status(404).json({ success: false });
+    }
+  } catch (e) {
+    console.log(e);
+    res.status(400).json({ success: false });
+  }
+};
+
+exports.fetchstorageuser = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id);
+
+    if (user) {
+      const storage = await Storage.find({ userid: user?._id }).populate(
+        "userid",
+        "email"
+      );
+
+      res
+        .status(200)
+        .json({ success: true, storage, storageused: user.storageused });
     } else {
       res.status(404).json({ success: false });
     }
@@ -123,19 +147,24 @@ exports.uploadtostorage = async (req, res) => {
 
     // Ensure file exists in the request
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No file uploaded' });
+      return res
+        .status(400)
+        .json({ success: false, message: "No file uploaded" });
     }
 
     // Find user and organization
     const user = await User.findById(id);
-    const org = await Organization.findById(orgid);
 
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+    let org;
+
+    if (orgid) {
+      org = await Organization.findById(orgid);
     }
 
-    if (!org) {
-      return res.status(404).json({ success: false, message: 'Organization not found' });
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
     // Generate unique filename and calculate file size
@@ -158,7 +187,7 @@ exports.uploadtostorage = async (req, res) => {
     });
 
     // Track upload progress (optional)
-    upload.on('httpUploadProgress', (progress) => {
+    upload.on("httpUploadProgress", (progress) => {
       console.log(`Uploaded: ${progress.loaded} / ${progress.total}`);
     });
 
@@ -168,7 +197,7 @@ exports.uploadtostorage = async (req, res) => {
     const st = new Storage({
       size: size.kb,
       date: new Date(),
-      orgid: org._id,
+      orgid: orgid ? org._id : undefined,
       userid: user._id,
       filename: req.file.originalname,
       objectName: objectName,
@@ -178,21 +207,38 @@ exports.uploadtostorage = async (req, res) => {
     await st.save();
 
     // Update organization with new storage details
-    await Organization.updateOne(
-      { _id: org._id },
-      { $inc: { storageused: size.kb }, $addToSet: { storage: st._id } }
-    );
+
+    if (orgid) {
+      await Organization.updateOne(
+        { _id: org._id },
+        { $inc: { storageused: size.kb }, $addToSet: { storage: st._id } }
+      );
+    } else {
+      await User.updateOne(
+        { _id: user._id },
+        { $inc: { storageused: size.kb }, $addToSet: { storage: st._id } }
+      );
+    }
 
     // Send success response
-    res.status(200).json({ success: true, message: 'File uploaded successfully' });
+    res
+      .status(200)
+      .json({ success: true, message: "File uploaded successfully" });
   } catch (e) {
-    console.error('Error uploading to storage:', e);
+    console.error("Error uploading to storage:", e);
 
     // Handle AWS S3-specific errors
-    if (e.code === 'NotImplemented') {
-      res.status(501).json({ success: false, message: 'Not Implemented Error: Possibly related to headers' });
+    if (e.code === "NotImplemented") {
+      res.status(501).json({
+        success: false,
+        message: "Not Implemented Error: Possibly related to headers",
+      });
     } else {
-      res.status(400).json({ success: false, message: 'Failed to upload file', error: e.message });
+      res.status(400).json({
+        success: false,
+        message: "Failed to upload file",
+        error: e.message,
+      });
     }
   }
 };
